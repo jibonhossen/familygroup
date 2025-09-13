@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>পরিবারের বন্ধন - আপনার পারিবারিক বৃক্ষ</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -87,11 +88,12 @@
         }
         .tree-member {
             border: 2px solid #cbd5e0;
-            padding: 10px 20px;
-            display: inline-block;
+            padding: 10px 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             border-radius: 8px;
-            min-width: 160px;
-            max-width: 200px;
+            width: 180px;
             word-wrap: break-word;
             white-space: normal; /* Allow text inside card to wrap */
             background-color: white;
@@ -163,7 +165,7 @@
                             <input type="email" id="email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="your@email.com" required>
                         </div>
                         <div class="mb-6">
-                            <label for="password" class="block text-gray-600 mb-2">পাসওয়ার্ড</label>
+                            <label for="password" class="block text-gray-600 mb-2">পাসওয়ার্ড</label>
                             <input type="password" id="password" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="••••••••" required>
                         </div>
                         <button type="submit" id="auth-button" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition duration-300">লগইন</button>
@@ -198,7 +200,7 @@
                     <!-- Family cards will be inserted here -->
                 </div>
                  <div id="no-family-message" class="hidden text-center py-12 bg-white rounded-lg shadow-md">
-                    <h3 class="text-xl text-gray-500">এখনও কোনো পরিবার তৈরি করা হয়নি।</h3>
+                    <h3 class="text-xl text-gray-500">এখনও কোনো পরিবার তৈরি করা হয়নি।</h3>
                     <p class="text-gray-400 mt-2">'নতুন পরিবার তৈরি করুন' বাটনে ক্লিক করে শুরু করুন।</p>
                 </div>
             </div>
@@ -250,6 +252,14 @@
             <form id="member-form">
                 <input type="hidden" id="member-id">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                    <div class="md:col-span-2 flex flex-col items-center space-y-4">
+                        <img id="image-preview" src="" alt="Profile Preview" class="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-sm">
+                        <label for="member-photo" class="cursor-pointer bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <span>ছবি পরিবর্তন করুন</span>
+                            <input id="member-photo" name="member-photo" type="file" class="sr-only" accept="image/*">
+                        </label>
+                    </div>
+
                     <div class="md:col-span-2">
                         <label for="member-name" class="block text-sm font-medium text-gray-700 mb-1">সদস্যের নাম</label>
                         <input type="text" id="member-name" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out" required>
@@ -310,11 +320,11 @@
     
     <!-- Member Details Modal -->
     <div id="member-details-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-60 items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div id="member-details-content">
                 <!-- Member details will be injected here -->
             </div>
-            <div id="member-details-modal-footer" class="flex justify-end gap-4 mt-6">
+            <div id="member-details-modal-footer" class="p-6 bg-gray-50 rounded-b-xl flex justify-end gap-4">
                 <!-- Buttons will be injected here -->
             </div>
         </div>
@@ -350,16 +360,17 @@
             query
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- Cloudinary Config ---
+        // --- !!! গুরুত্বপূর্ণ !!! ---
+        // নিচের দুটি লাইনে আপনার নিজের Cloudinary তথ্য যোগ করুন।
+        // ১. আপনার Cloudinary ড্যাশবোর্ড থেকে "Cloud Name" টি নিন।
+        // ২. Settings > Upload > Upload Presets থেকে একটি "Unsigned" preset তৈরি করে তার নাম দিন।
+        const CLOUDINARY_CLOUD_NAME = 'dyjtkklqd'; // <-- আপনার Cloud Name এখানে বসান
+        const CLOUDINARY_UPLOAD_PRESET = 'family photo'; // <-- আপনার Upload Preset এখানে বসান
+        const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+
         // --- Firebase Config ---
-        /* * গুরুত্বপূর্ণ নোট: auth/network-request-failed ত্রুটি সমাধানের জন্য
-         * --------------------------------------------------------------------
-         * এই ত্রুটি সাধারণত ঘটে যখন আপনার ওয়েবসাইট যে ডোমেইন থেকে চলছে, সেটি Firebase-এ অনুমোদিত নয়।
-         * সমাধানের জন্য নিচের ধাপগুলো অনুসরণ করুন:
-         * * ১. আপনার Firebase Console-এ যান।
-         * ২. Authentication -> Settings -> Authorized domains সেকশনে যান।
-         * ৩. 'Add domain' বাটনে ক্লিক করে আপনার ওয়েবসাইটের ডোমেইনটি যোগ করুন।
-         * (যেমন: localhost, your-website.com, অথবা যে সার্ভারে কোডটি চলছে তার ঠিকানা)।
-         */
         const firebaseConfig = {
             apiKey: "AIzaSyDeStcjDLrnhI2VT4oG7IXBXGCCLw377Po",
             authDomain: "molla-family-group.firebaseapp.com",
@@ -385,6 +396,12 @@
         let visibleMembersCache = [];
         let treeHistory = [];
         let currentTreeRootId = null;
+
+        // --- SVG Icons ---
+        const MALE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z"/></svg>`;
+        const FEMALE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M320 256A128 128 0 1 0 64 256a128 128 0 1 0 256 0zM0 482.3C0 383.8 79.8 304 178.3 304h91.4C368.2 304 448 383.8 448 482.3c0 16.4-13.3 29.7-29.7 29.7H29.7C13.3 512 0 498.7 0 482.3z"/></svg>`;
+        const MALE_ICON_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(MALE_ICON_SVG.replace('currentColor', '#A0AEC0'))}`;
+        const FEMALE_ICON_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(FEMALE_ICON_SVG.replace('currentColor', '#A0AEC0'))}`;
 
         // --- DOM Elements ---
         const loader = document.getElementById('loader');
@@ -415,6 +432,9 @@
         const memberIdInput = document.getElementById('member-id');
         const treeBackButton = document.getElementById('tree-back-button');
         const fullTreeButton = document.getElementById('full-tree-button');
+        const memberPhotoInput = document.getElementById('member-photo');
+        const imagePreview = document.getElementById('image-preview');
+        const memberGenderSelect = document.getElementById('member-gender');
 
         // --- Utility Functions ---
         const showLoader = () => loader.style.display = 'flex';
@@ -458,10 +478,10 @@
                     await setDoc(doc(db, "users", userCredential.user.uid), {
                         displayName: name, email: email, familyIds: []
                     });
-                    showToast('রেজিস্ট্রেশন সফল হয়েছে!');
+                    showToast('রেজিস্ট্রেশন সফল হয়েছে!');
                 } else {
                     await signInWithEmailAndPassword(auth, email, password);
-                    showToast('লগইন সফল হয়েছে!');
+                    showToast('লগইন সফল হয়েছে!');
                 }
             } catch (error) {
                 console.error("Authentication error:", error);
@@ -472,7 +492,7 @@
         });
         logoutButton.addEventListener('click', async () => {
             await signOut(auth);
-            showToast('সফলভাবে লগ আউট হয়েছেন।');
+            showToast('সফলভাবে লগ আউট হয়েছেন।');
         });
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -485,7 +505,7 @@
                         });
                     } catch (error) {
                          console.error("Error creating user document on login:", error);
-                         showToast("ব্যবহারকারীর তথ্য সেট করতে সমস্যা হয়েছে।", true);
+                         showToast("ব্যবহারকারীর তথ্য সেট করতে সমস্যা হয়েছে।", true);
                     }
                 }
                 currentUser = user;
@@ -538,7 +558,7 @@
                 renderFamilies(families.filter(f => f !== null));
             }, (error) => {
                 console.error("Error fetching families:", error);
-                showToast("পরিবার তালিকা আনতে সমস্যা হয়েছে।", true);
+                showToast("পরিবার তালিকা আনতে সমস্যা হয়েছে।", true);
             });
         };
         const renderFamilies = (families) => {
@@ -579,7 +599,7 @@
                 hideLoader();
             }, (error) => {
                 console.error("Error fetching members:", error);
-                showToast("সদস্যদের তালিকা আনতে সমস্যা হয়েছে।", true);
+                showToast("সদস্যদের তালিকা আনতে সমস্যা হয়েছে।", true);
                 hideLoader();
             });
         };
@@ -613,7 +633,7 @@
             const container = document.getElementById('family-tree-container');
             container.innerHTML = '';
             if (members.length === 0) {
-                container.innerHTML = `<p class="text-gray-500">কোনো সদস্য পাওয়া যায়নি। নতুন সদস্য যোগ করুন।</p>`;
+                container.innerHTML = `<p class="text-gray-500">কোনো সদস্য পাওয়া যায়নি। নতুন সদস্য যোগ করুন।</p>`;
                 visibleMembersCache = [];
                 return;
             }
@@ -654,7 +674,7 @@
                 ul.appendChild(tree);
                 container.appendChild(ul);
             } else {
-                container.innerHTML = `<p class="text-gray-500">পরিবারের প্রধান সদস্য খুঁজে পাওয়া যায়নি।</p>`;
+                container.innerHTML = `<p class="text-gray-500">পরিবারের প্রধান সদস্য খুঁজে পাওয়া যায়নি।</p>`;
             }
         };
 
@@ -710,7 +730,12 @@
         const createMemberNode = (member) => {
             const div = document.createElement('div');
             div.className = `tree-member`;
-            div.innerHTML = `<p class="font-bold text-md text-gray-800">${member.name}</p><p class="text-sm text-gray-500">${member.gender}</p>`;
+            const photoSrc = member.photoURL || (member.gender === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL);
+            div.innerHTML = `
+                <img src="${photoSrc}" alt="${member.name}" class="w-16 h-16 rounded-full object-cover mb-2 border-2 border-gray-300">
+                <p class="font-bold text-md text-gray-800">${member.name}</p>
+                <p class="text-sm text-gray-500">${member.gender}</p>
+            `;
             
             div.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -761,6 +786,26 @@
         document.getElementById('open-create-family-modal').addEventListener('click', () => createFamilyModal.classList.add('show'));
         document.getElementById('open-add-member-modal').addEventListener('click', () => openMemberModal());
         
+        memberPhotoInput.addEventListener('change', () => {
+            const file = memberPhotoInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        memberGenderSelect.addEventListener('change', () => {
+            const photoFile = memberPhotoInput.files[0];
+            const isDefaultIcon = imagePreview.src.startsWith('data:image/svg+xml');
+            
+            if (!photoFile && isDefaultIcon) {
+                imagePreview.src = memberGenderSelect.value === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL;
+            }
+        });
+
         const openMemberModal = (memberToEdit = null) => {
             memberForm.reset();
             memberIdInput.value = '';
@@ -787,6 +832,7 @@
                 document.getElementById('member-mobile').value = memberToEdit.mobileNumber || '';
                 document.getElementById('member-bio').value = memberToEdit.bio || '';
                 document.getElementById('is-head').checked = memberToEdit.isHead || false;
+                imagePreview.src = memberToEdit.photoURL || (memberToEdit.gender === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL);
                 parentSelect.value = memberToEdit.parentId || '';
                 spouseSelect.value = memberToEdit.spouseId || '';
                 deleteMemberBtn.classList.remove('hidden');
@@ -794,6 +840,7 @@
             } else {
                 memberModalTitle.textContent = 'নতুন সদস্য যোগ করুন';
                 deleteMemberBtn.classList.add('hidden');
+                imagePreview.src = MALE_ICON_URL;
             }
             memberModal.classList.add('show');
         };
@@ -805,16 +852,24 @@
             
             const parent = member.parentId ? membersCache.find(m => m.id === member.parentId) : null;
             const spouse = member.spouseId ? membersCache.find(m => m.id === member.spouseId) : null;
+            const photoSrc = member.photoURL || (member.gender === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL);
             
             memberDetailsContent.innerHTML = `
-                <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">${member.name}</h2>
-                <div class="space-y-2 text-gray-700 text-left">
-                    <p><strong>লিঙ্গ:</strong> ${member.gender || 'N/A'}</p>
-                    <p><strong>জন্ম তারিখ:</strong> ${member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('bn-BD') : 'N/A'}</p>
-                    <p><strong>মোবাইল:</strong> ${member.mobileNumber || 'N/A'}</p>
-                    <p><strong>পিতা/মাতা:</strong> ${parent ? parent.name : 'N/A'}</p>
-                    <p><strong>স্বামী/স্ত্রী:</strong> ${spouse ? spouse.name : 'N/A'}</p>
-                    <p><strong>পরিচয়:</strong> ${member.bio || 'N/A'}</p>
+                <div class="p-6 text-center">
+                    <img src="${photoSrc}" alt="${member.name}" class="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-white shadow-lg">
+                    <h2 class="text-3xl font-bold text-gray-800">${member.name}</h2>
+                    <p class="text-gray-500">${member.gender || 'N/A'}</p>
+                </div>
+                <div class="border-t border-gray-200 px-6 py-4">
+                    <div class="space-y-4 text-gray-700 text-left">
+                        <p><i class="fas fa-birthday-cake fa-fw mr-2 text-gray-500"></i><strong>জন্ম তারিখ:</strong> ${member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('bn-BD') : 'N/A'}</p>
+                        <p><i class="fas fa-mobile-alt fa-fw mr-2 text-gray-500"></i><strong>মোবাইল:</strong> ${member.mobileNumber || 'N/A'}</p>
+                        <p><i class="fas fa-user-friends fa-fw mr-2 text-gray-500"></i><strong>পিতা/মাতা:</strong> ${parent ? parent.name : 'N/A'}</p>
+                        <p><i class="fas fa-heart fa-fw mr-2 text-gray-500"></i><strong>স্বামী/স্ত্রী:</strong> ${spouse ? spouse.name : 'N/A'}</p>
+                    </div>
+                </div>
+                 <div class="px-6 py-4 bg-gray-50">
+                    <p class="text-center text-gray-600 italic">"${member.bio || 'কোনো পরিচিতি যোগ করা হয়নি।'}"</p>
                 </div>
             `;
 
@@ -825,7 +880,7 @@
             if (!isRootNode) {
                 const viewTreeBtn = document.createElement('button');
                 viewTreeBtn.textContent = 'পরিবার বৃক্ষ দেখুন';
-                viewTreeBtn.className = 'px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition';
+                viewTreeBtn.className = 'px-5 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition';
                 viewTreeBtn.onclick = () => {
                     detailsModal.classList.remove('show');
                     renderTreeFromNewRoot(member.id);
@@ -835,7 +890,7 @@
 
             const editBtn = document.createElement('button');
             editBtn.textContent = 'সম্পাদনা';
-            editBtn.className = 'px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition';
+            editBtn.className = 'px-5 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 transition';
             editBtn.onclick = () => {
                 detailsModal.classList.remove('show');
                 openMemberModal(member);
@@ -844,7 +899,7 @@
 
             const closeBtn = document.createElement('button');
             closeBtn.textContent = 'বন্ধ করুন';
-            closeBtn.className = 'px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition close-modal-btn';
+            closeBtn.className = 'px-5 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition close-modal-btn';
             closeBtn.onclick = () => detailsModal.classList.remove('show');
             modalFooter.appendChild(closeBtn);
 
@@ -866,12 +921,12 @@
                 });
                 const userDocRef = doc(db, 'users', currentUser.uid);
                 await updateDoc(userDocRef, { familyIds: arrayUnion(familyDocRef.id) });
-                showToast('পরিবার সফলভাবে তৈরি হয়েছে!');
+                showToast('পরিবার সফলভাবে তৈরি হয়েছে!');
                 createFamilyForm.reset();
                 createFamilyModal.classList.remove('show');
             } catch (error) {
                 console.error("Error creating family:", error);
-                showToast('পরিবার তৈরি করতে সমস্যা হয়েছে।', true);
+                showToast('পরিবার তৈরি করতে সমস্যা হয়েছে।', true);
             } finally {
                 hideLoader();
             }
@@ -881,6 +936,9 @@
             e.preventDefault();
             showLoader();
             const memberId = memberIdInput.value;
+            const photoFile = memberPhotoInput.files[0];
+            let photoURL = memberId ? (membersCache.find(m => m.id === memberId)?.photoURL || null) : null;
+
             const memberData = {
                 name: document.getElementById('member-name').value,
                 gender: document.getElementById('member-gender').value,
@@ -891,28 +949,54 @@
                 parentId: document.getElementById('parent-id').value || null,
                 spouseId: document.getElementById('spouse-id').value || null,
             };
+
             try {
+                if (photoFile) {
+                    if (CLOUDINARY_CLOUD_NAME === 'dyjtkklqd' || CLOUDINARY_UPLOAD_PRESET === 'family photo') {
+                         throw new Error('অনুগ্রহ করে আপনার Cloudinary Cloud Name এবং Upload Preset যোগ করুন।');
+                    }
+                    const formData = new FormData();
+                    formData.append('file', photoFile);
+                    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+                    const response = await fetch(CLOUDINARY_URL, {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok && data.secure_url) {
+                        photoURL = data.secure_url;
+                    } else {
+                        const errorMessage = data.error?.message || 'Cloudinary-তে ছবি আপলোড করা যায়নি।';
+                        throw new Error(errorMessage);
+                    }
+                }
+                memberData.photoURL = photoURL;
+
+                let memberDocId = memberId;
+
                 if (memberId) { // Editing
                     const memberDocRef = doc(db, `families/${currentFamilyId}/members`, memberId);
                     await updateDoc(memberDocRef, memberData);
-                     if (memberData.spouseId) {
-                        const spouseDocRef = doc(db, `families/${currentFamilyId}/members`, memberData.spouseId);
-                        await updateDoc(spouseDocRef, { spouseId: memberId });
-                    }
-                    showToast('সদস্যের তথ্য আপডেট হয়েছে!');
                 } else { // Adding
                     const newMemberRef = await addDoc(collection(db, `families/${currentFamilyId}/members`), memberData);
-                    if (memberData.spouseId) {
-                        const spouseDocRef = doc(db, `families/${currentFamilyId}/members`, memberData.spouseId);
-                        await updateDoc(spouseDocRef, { spouseId: newMemberRef.id });
-                    }
-                    showToast('নতুন সদস্য যোগ হয়েছে!');
+                    memberDocId = newMemberRef.id;
                 }
+
+                if (memberData.spouseId && memberDocId) {
+                    const spouseDocRef = doc(db, `families/${currentFamilyId}/members`, memberData.spouseId);
+                    await updateDoc(spouseDocRef, { spouseId: memberDocId });
+                }
+
+                showToast(memberId ? 'সদস্যের তথ্য আপডেট হয়েছে!' : 'নতুন সদস্য যোগ হয়েছে!');
                 memberForm.reset();
                 memberModal.classList.remove('show');
+
             } catch(error) {
                 console.error("Error saving member:", error);
-                showToast('সদস্যের তথ্য সংরক্ষণ করতে সমস্যা হয়েছে।', true);
+                showToast(`সদস্যের তথ্য সংরক্ষণ করতে সমস্যা হয়েছে: ${error.message}`, true);
             } finally {
                 hideLoader();
             }
@@ -944,11 +1028,11 @@
                 });
 
                 await batch.commit();
-                showToast('সদস্যকে সফলভাবে মুছে ফেলা হয়েছে।');
+                showToast('সদস্যকে সফলভাবে মুছে ফেলা হয়েছে।');
                 memberModal.classList.remove('show');
             } catch (error) {
                 console.error("Error deleting member: ", error);
-                showToast('সদস্যকে মুছতে সমস্যা হয়েছে।', true);
+                showToast('সদস্যকে মুছতে সমস্যা হয়েছে।', true);
             } finally {
                 hideLoader();
             }
@@ -976,10 +1060,10 @@
                     familyIds: arrayRemove(familyId)
                 });
 
-                showToast('পরিবার সফলভাবে মুছে ফেলা হয়েছে।');
+                showToast('পরিবার সফলভাবে মুছে ফেলা হয়েছে।');
             } catch (error) {
                 console.error("Error deleting family: ", error);
-                showToast('পরিবার মুছতে সমস্যা হয়েছে।', true);
+                showToast('পরিবার মুছতে সমস্যা হয়েছে।', true);
             } finally {
                 hideLoader();
             }
