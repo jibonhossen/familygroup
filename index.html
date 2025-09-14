@@ -130,6 +130,10 @@
             visibility: visible;
             opacity: 1;
         }
+        select:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -254,10 +258,15 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                     <div class="md:col-span-2 flex flex-col items-center space-y-4">
                         <img id="image-preview" src="" alt="Profile Preview" class="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-sm">
-                        <label for="member-photo" class="cursor-pointer bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            <span>ছবি পরিবর্তন করুন</span>
-                            <input id="member-photo" name="member-photo" type="file" class="sr-only" accept="image/*">
-                        </label>
+                        <div class="flex items-center space-x-2">
+                            <label for="member-photo" class="cursor-pointer bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                <span>ছবি পরিবর্তন করুন</span>
+                                <input id="member-photo" name="member-photo" type="file" class="sr-only" accept="image/*">
+                            </label>
+                             <button type="button" id="delete-photo-btn" class="hidden p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" title="ছবি মুছুন">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="md:col-span-2">
@@ -361,13 +370,9 @@
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Cloudinary Config ---
-        // --- !!! গুরুত্বপূর্ণ !!! ---
-        // নিচের দুটি লাইনে আপনার নিজের Cloudinary তথ্য যোগ করুন।
-        // ১. আপনার Cloudinary ড্যাশবোর্ড থেকে "Cloud Name" টি নিন।
-        // ২. Settings > Upload > Upload Presets থেকে একটি "Unsigned" preset তৈরি করে তার নাম দিন।
-        const CLOUDINARY_CLOUD_NAME = 'dyjtkklqd'; // <-- আপনার Cloud Name এখানে বসান
-        const CLOUDINARY_UPLOAD_PRESET = 'imageofmember'; // <-- আপনার Upload Preset এখানে বসান
-        let CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+        const CLOUDINARY_CLOUD_NAME = 'dyjtkklqd';
+        const CLOUDINARY_UPLOAD_PRESET = 'imageofmember';
+        const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
 
         // --- Firebase Config ---
@@ -396,6 +401,8 @@
         let visibleMembersCache = [];
         let treeHistory = [];
         let currentTreeRootId = null;
+        let photoDeleted = false;
+
 
         // --- SVG Icons ---
         const MALE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z"/></svg>`;
@@ -435,6 +442,7 @@
         const memberPhotoInput = document.getElementById('member-photo');
         const imagePreview = document.getElementById('image-preview');
         const memberGenderSelect = document.getElementById('member-gender');
+        const deletePhotoBtn = document.getElementById('delete-photo-btn');
 
         // --- Utility Functions ---
         const showLoader = () => loader.style.display = 'flex';
@@ -786,14 +794,24 @@
         document.getElementById('open-create-family-modal').addEventListener('click', () => createFamilyModal.classList.add('show'));
         document.getElementById('open-add-member-modal').addEventListener('click', () => openMemberModal());
         
+        deletePhotoBtn.addEventListener('click', () => {
+            photoDeleted = true;
+            memberPhotoInput.value = ''; // Clear file input
+            imagePreview.src = memberGenderSelect.value === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL;
+            deletePhotoBtn.classList.add('hidden');
+            showToast('ছবি মুছে ফেলার জন্য প্রস্তুত। "সংরক্ষণ করুন" চাপুন।');
+        });
+
         memberPhotoInput.addEventListener('change', () => {
             const file = memberPhotoInput.files[0];
             if (file) {
+                photoDeleted = false; // A new file is selected, so we are not deleting
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     imagePreview.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
+                deletePhotoBtn.classList.remove('hidden'); // Show delete button for the new preview
             }
         });
 
@@ -809,6 +827,7 @@
 
         const openMemberModal = (memberToEdit = null) => {
             memberForm.reset();
+            photoDeleted = false;
             memberIdInput.value = '';
             const parentSelect = document.getElementById('parent-id');
             const spouseSelect = document.getElementById('spouse-id');
@@ -816,7 +835,18 @@
             parentSelect.innerHTML = '<option value="">নির্বাচন করুন</option>';
             spouseSelect.innerHTML = '<option value="">নির্বাচন করুন</option>';
             
-            const membersToList = visibleMembersCache.length > 0 ? visibleMembersCache : membersCache;
+            let membersToList = visibleMembersCache;
+
+            if (memberToEdit && memberToEdit.parentId) {
+                const parentIsNotVisible = !visibleMembersCache.some(m => m.id === memberToEdit.parentId);
+                if (parentIsNotVisible) {
+                    const parentFromCache = membersCache.find(m => m.id === memberToEdit.parentId);
+                    if (parentFromCache) {
+                        membersToList = [...visibleMembersCache, parentFromCache];
+                    }
+                }
+            }
+            
             membersToList.forEach(member => {
                 if (memberToEdit && member.id === memberToEdit.id) return;
                 const option = `<option value="${member.id}">${member.name}</option>`;
@@ -834,14 +864,31 @@
                 document.getElementById('member-bio').value = memberToEdit.bio || '';
                 document.getElementById('is-head').checked = memberToEdit.isHead || false;
                 imagePreview.src = memberToEdit.photoURL || (memberToEdit.gender === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL);
+                if(memberToEdit.photoURL){
+                    deletePhotoBtn.classList.remove('hidden');
+                } else {
+                    deletePhotoBtn.classList.add('hidden');
+                }
                 parentSelect.value = memberToEdit.parentId || '';
                 spouseSelect.value = memberToEdit.spouseId || '';
+
+                if (memberToEdit.parentId) {
+                    parentSelect.disabled = true;
+                } else {
+                    parentSelect.disabled = false;
+                }
+
                 deleteMemberBtn.classList.remove('hidden');
                 deleteMemberBtn.onclick = () => handleDeleteMember(memberToEdit.id, memberToEdit.spouseId);
             } else {
                 memberModalTitle.textContent = 'নতুন সদস্য যোগ করুন';
                 deleteMemberBtn.classList.add('hidden');
                 imagePreview.src = MALE_ICON_URL;
+                parentSelect.disabled = false;
+                // Pre-select the current tree root as the parent when adding a new member in a sub-view.
+                if (currentTreeRootId) {
+                    parentSelect.value = currentTreeRootId;
+                }
             }
             memberModal.classList.add('show');
         };
@@ -851,32 +898,36 @@
             const memberDetailsContent = document.getElementById('member-details-content');
             const modalFooter = document.getElementById('member-details-modal-footer');
             
-            const parent = member.parentId ? membersCache.find(m => m.id === member.parentId) : null;
-            const spouse = member.spouseId ? membersCache.find(m => m.id === member.spouseId) : null;
-            const photoSrc = member.photoURL || (member.gender === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL);
+             // Ensure we are working with the most up-to-date member data from the cache
+            const freshMemberData = membersCache.find(m => m.id === member.id);
+            if (!freshMemberData) return;
+
+            const parent = freshMemberData.parentId ? membersCache.find(m => m.id === freshMemberData.parentId) : null;
+            const spouse = freshMemberData.spouseId ? membersCache.find(m => m.id === freshMemberData.spouseId) : null;
+            const photoSrc = freshMemberData.photoURL || (freshMemberData.gender === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL);
             
             memberDetailsContent.innerHTML = `
                 <div class="p-6 text-center">
-                    <img src="${photoSrc}" alt="${member.name}" class="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-white shadow-lg">
-                    <h2 class="text-3xl font-bold text-gray-800">${member.name}</h2>
-                    <p class="text-gray-500">${member.gender || 'N/A'}</p>
+                    <img src="${photoSrc}" alt="${freshMemberData.name}" class="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-white shadow-lg">
+                    <h2 class="text-3xl font-bold text-gray-800">${freshMemberData.name}</h2>
+                    <p class="text-gray-500">${freshMemberData.gender || 'N/A'}</p>
                 </div>
                 <div class="border-t border-gray-200 px-6 py-4">
                     <div class="space-y-4 text-gray-700 text-left">
-                        <p><i class="fas fa-birthday-cake fa-fw mr-2 text-gray-500"></i><strong>জন্ম তারিখ:</strong> ${member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('bn-BD') : 'N/A'}</p>
-                        <p><i class="fas fa-mobile-alt fa-fw mr-2 text-gray-500"></i><strong>মোবাইল:</strong> ${member.mobileNumber || 'N/A'}</p>
+                        <p><i class="fas fa-birthday-cake fa-fw mr-2 text-gray-500"></i><strong>জন্ম তারিখ:</strong> ${freshMemberData.dateOfBirth ? new Date(freshMemberData.dateOfBirth).toLocaleDateString('bn-BD') : 'N/A'}</p>
+                        <p><i class="fas fa-mobile-alt fa-fw mr-2 text-gray-500"></i><strong>মোবাইল:</strong> ${freshMemberData.mobileNumber || 'N/A'}</p>
                         <p><i class="fas fa-user-friends fa-fw mr-2 text-gray-500"></i><strong>পিতা/মাতা:</strong> ${parent ? parent.name : 'N/A'}</p>
                         <p><i class="fas fa-heart fa-fw mr-2 text-gray-500"></i><strong>স্বামী/স্ত্রী:</strong> ${spouse ? spouse.name : 'N/A'}</p>
                     </div>
                 </div>
                  <div class="px-6 py-4 bg-gray-50">
-                    <p class="text-center text-gray-600 italic">"${member.bio || 'কোনো পরিচিতি যোগ করা হয়নি।'}"</p>
+                    <p class="text-center text-gray-600 italic">"${freshMemberData.bio || 'কোনো পরিচিতি যোগ করা হয়নি।'}"</p>
                 </div>
             `;
 
             modalFooter.innerHTML = '';
             
-            const isRootNode = member.id === currentTreeRootId;
+            const isRootNode = freshMemberData.id === currentTreeRootId;
 
             if (!isRootNode) {
                 const viewTreeBtn = document.createElement('button');
@@ -884,7 +935,7 @@
                 viewTreeBtn.className = 'px-5 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition';
                 viewTreeBtn.onclick = () => {
                     detailsModal.classList.remove('show');
-                    renderTreeFromNewRoot(member.id);
+                    renderTreeFromNewRoot(freshMemberData.id);
                 };
                 modalFooter.appendChild(viewTreeBtn);
             }
@@ -894,7 +945,7 @@
             editBtn.className = 'px-5 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 transition';
             editBtn.onclick = () => {
                 detailsModal.classList.remove('show');
-                openMemberModal(member);
+                openMemberModal(freshMemberData);
             };
             modalFooter.appendChild(editBtn);
 
@@ -937,8 +988,14 @@
             e.preventDefault();
             showLoader();
             const memberId = memberIdInput.value;
+            const originalMemberData = memberId ? membersCache.find(m => m.id === memberId) : null;
+            const originalSpouseId = originalMemberData ? originalMemberData.spouseId : null;
             const photoFile = memberPhotoInput.files[0];
-            let photoURL = memberId ? (membersCache.find(m => m.id === memberId)?.photoURL || null) : null;
+            let photoURL = originalMemberData ? originalMemberData.photoURL : null;
+
+            if (photoDeleted) {
+                photoURL = null;
+            }
 
             const memberData = {
                 name: document.getElementById('member-name').value,
@@ -953,9 +1010,6 @@
 
             try {
                 if (photoFile) {
-                    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-                         throw new Error('অনুগ্রহ করে আপনার Cloudinary Cloud Name এবং Upload Preset যোগ করুন।');
-                    }
                     const formData = new FormData();
                     formData.append('file', photoFile);
                     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
@@ -979,17 +1033,35 @@
                 let memberDocId = memberId;
 
                 if (memberId) { // Editing
-                    const memberDocRef = doc(db, `families/${currentFamilyId}/members`, memberId);
-                    await updateDoc(memberDocRef, memberData);
+                    await updateDoc(doc(db, `families/${currentFamilyId}/members`, memberId), memberData);
                 } else { // Adding
                     const newMemberRef = await addDoc(collection(db, `families/${currentFamilyId}/members`), memberData);
                     memberDocId = newMemberRef.id;
                 }
-
-                if (memberData.spouseId && memberDocId) {
-                    const spouseDocRef = doc(db, `families/${currentFamilyId}/members`, memberData.spouseId);
-                    await updateDoc(spouseDocRef, { spouseId: memberDocId });
+                
+                const newSpouseId = memberData.spouseId;
+                
+                // This logic ensures that spouse links are updated correctly on both sides.
+                if (newSpouseId !== originalSpouseId) {
+                    const batch = writeBatch(db);
+                    
+                    // Unlink the old spouse, if there was one.
+                    if (originalSpouseId) {
+                        const oldSpouseDocRef = doc(db, `families/${currentFamilyId}/members`, originalSpouseId);
+                        batch.update(oldSpouseDocRef, { spouseId: null });
+                    }
+                    // Link the new spouse, if there is one.
+                    if (newSpouseId) {
+                        const newSpouseDocRef = doc(db, `families/${currentFamilyId}/members`, newSpouseId);
+                        batch.update(newSpouseDocRef, { spouseId: memberDocId });
+                    }
+                    await batch.commit();
+                } else if (newSpouseId) {
+                    // If spouse hasn't changed, still ensure the link is mutual
+                     const newSpouseDocRef = doc(db, `families/${currentFamilyId}/members`, newSpouseId);
+                     await updateDoc(newSpouseDocRef, { spouseId: memberDocId });
                 }
+
 
                 showToast(memberId ? 'সদস্যের তথ্য আপডেট হয়েছে!' : 'নতুন সদস্য যোগ হয়েছে!');
                 memberForm.reset();
