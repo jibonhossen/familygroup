@@ -366,8 +366,8 @@
         // ১. আপনার Cloudinary ড্যাশবোর্ড থেকে "Cloud Name" টি নিন।
         // ২. Settings > Upload > Upload Presets থেকে একটি "Unsigned" preset তৈরি করে তার নাম দিন।
         const CLOUDINARY_CLOUD_NAME = 'dyjtkklqd'; // <-- আপনার Cloud Name এখানে বসান
-        const CLOUDINARY_UPLOAD_PRESET = 'family photo'; // <-- আপনার Upload Preset এখানে বসান
-        const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+        const CLOUDINARY_UPLOAD_PRESET = 'imageofmember'; // <-- আপনার Upload Preset এখানে বসান
+        let CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
 
         // --- Firebase Config ---
@@ -799,9 +799,10 @@
 
         memberGenderSelect.addEventListener('change', () => {
             const photoFile = memberPhotoInput.files[0];
-            const isDefaultIcon = imagePreview.src.startsWith('data:image/svg+xml');
+            // Check if the current image source is one of the default icons
+            const isDefaultIcon = imagePreview.src === MALE_ICON_URL || imagePreview.src === FEMALE_ICON_URL;
             
-            if (!photoFile && isDefaultIcon) {
+            if (!photoFile || isDefaultIcon) {
                 imagePreview.src = memberGenderSelect.value === 'মহিলা' ? FEMALE_ICON_URL : MALE_ICON_URL;
             }
         });
@@ -952,7 +953,7 @@
 
             try {
                 if (photoFile) {
-                    if (CLOUDINARY_CLOUD_NAME === 'dyjtkklqd' || CLOUDINARY_UPLOAD_PRESET === 'family photo') {
+                    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
                          throw new Error('অনুগ্রহ করে আপনার Cloudinary Cloud Name এবং Upload Preset যোগ করুন।');
                     }
                     const formData = new FormData();
